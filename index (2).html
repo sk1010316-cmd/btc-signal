@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BTC 訊號">
+<title>BTC 均線訊號</title>
+<style>
+:root{
+  color-scheme:light;
+  --bg:#f6f6f4;--panel:#fcfcfb;--panel2:#f0f0ed;--line:#e3e2dd;--line2:#d2d1cb;
+  --text:#0b0b0b;--text2:#52514e;--muted:#7d7c77;
+  --s1:#2a78d6;--s2:#eb6834;
+  --good:#0f8a4d;--good-bg:rgba(15,138,77,.10);
+  --bad:#cf3434;--bad-bg:rgba(207,52,52,.10);
+  --warn:#a86b00;--warn-bg:rgba(237,161,0,.14);
+}
+@media (prefers-color-scheme:dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme:dark;
+    --bg:#121211;--panel:#1a1a19;--panel2:#222220;--line:#2d2d2a;--line2:#3a3a36;
+    --text:#ffffff;--text2:#c3c2b7;--muted:#8e8d86;
+    --s1:#3987e5;--s2:#d95926;
+    --good:#2fbf74;--good-bg:rgba(47,191,116,.12);
+    --bad:#ef6464;--bad-bg:rgba(239,100,100,.12);
+    --warn:#e0a63a;--warn-bg:rgba(224,166,58,.14);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#121211;--panel:#1a1a19;--panel2:#222220;--line:#2d2d2a;--line2:#3a3a36;
+  --text:#ffffff;--text2:#c3c2b7;--muted:#8e8d86;
+  --s1:#3987e5;--s2:#d95926;
+  --good:#2fbf74;--good-bg:rgba(47,191,116,.12);
+  --bad:#ef6464;--bad-bg:rgba(239,100,100,.12);
+  --warn:#e0a63a;--warn-bg:rgba(224,166,58,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text)}
+body{font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC","Microsoft JhengHei","Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;padding-bottom:env(safe-area-inset-bottom)}
+.num{font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.pos{color:var(--good)}.neg{color:var(--bad)}.mute{color:var(--muted)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px}
+header{border-bottom:1px solid var(--line);background:var(--panel);padding-top:env(safe-area-inset-top)}
+header .wrap{display:flex;align-items:center;gap:12px;padding-top:12px;padding-bottom:12px;flex-wrap:wrap}
+h1{font-size:17px;margin:0;font-weight:650}
+.price{font-size:17px;font-weight:600}
+.status{color:var(--muted);font-size:12px;display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.dot.live{background:var(--good)}.dot.busy{background:var(--warn)}.dot.err{background:var(--bad)}
+.spacer{flex:1}
+button{font:inherit;font-size:13px;background:var(--panel2);color:var(--text);border:1px solid var(--line2);border-radius:8px;padding:6px 12px;cursor:pointer}
+main{padding:16px 0 40px}
+.banner{border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;background:var(--bad-bg);color:var(--bad);border:1px solid var(--bad)}
+.hidden{display:none!important}
+.grid{display:grid;grid-template-columns:1.25fr 1fr;gap:14px;align-items:start}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden;margin-bottom:14px}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.ch h2{font-size:15px;margin:0;font-weight:650}
+.ch small{color:var(--muted);font-size:12px}
+.cb{padding:14px 16px}
+.badge{font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.badge.ok{background:var(--good-bg);color:var(--good)}
+.badge.watch{background:var(--warn-bg);color:var(--warn)}
+.state{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+.pill{font-size:20px;font-weight:700;padding:6px 16px;border-radius:12px;letter-spacing:.02em}
+.pill.long{background:var(--good-bg);color:var(--good)}
+.pill.short{background:var(--bad-bg);color:var(--bad)}
+.pill.flat{background:var(--panel2);color:var(--text2)}
+.state .since{color:var(--text2);font-size:13px}
+.kv{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 14px}
+@media(max-width:520px){.kv{grid-template-columns:repeat(2,1fr)}}
+.kv div{display:flex;flex-direction:column;min-width:0}
+.kv div>span{color:var(--muted);font-size:12px}
+.kv b{font-size:17px;font-weight:600}
+.kv em{font-style:normal;color:var(--text2);font-size:12px}
+.note{color:var(--text2);font-size:13px;line-height:1.65;margin-top:12px}
+.note b{color:var(--text)}
+.exitline{margin-top:14px;padding:12px 14px;border-radius:10px;background:var(--panel2);font-size:14px;line-height:1.6}
+.exitline b{font-size:16px}
+.calc{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;font-size:13px;color:var(--text2)}
+.calc input{width:110px;font:inherit;font-size:15px;padding:6px 10px;border-radius:8px;border:1px solid var(--line2);background:var(--bg);color:var(--text)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:520px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:var(--panel2);border-radius:10px;padding:10px 12px}
+.stat>span{display:block;color:var(--muted);font-size:12px}
+.stat b{font-size:18px;font-weight:650}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-weight:500;font-size:12px;position:sticky;top:0;background:var(--panel)}
+th:first-child,td:first-child{text-align:left}
+tr:last-child td{border-bottom:none}
+.twrap{overflow:auto;max-height:420px}
+.tabs{display:flex;gap:4px}
+.tabs button{background:none;border:1px solid transparent;color:var(--muted)}
+.tabs button.on{border-color:var(--line2);color:var(--text);background:var(--panel2)}
+.chart{position:relative}
+.chart svg{display:block;width:100%;height:auto}
+.legend{display:flex;gap:16px;font-size:12px;color:var(--text2);padding:0 16px 10px}
+.legend i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.tip{position:absolute;pointer-events:none;background:var(--panel);border:1px solid var(--line2);border-radius:8px;padding:6px 10px;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.18);white-space:nowrap}
+.tip .sw{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px}
+footer{color:var(--muted);font-size:12px;line-height:1.7}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>BTC 均線訊號</h1>
+    <span class="price num" id="px">–</span>
+    <span class="status"><span class="dot" id="dot"></span><span id="st">載入中…</span></span>
+    <span class="spacer"></span>
+    <button id="reload">重新計算</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="banner hidden" id="err"></div>
+
+  <div class="grid">
+    <!-- 主策略 B -->
+    <section class="card">
+      <div class="ch"><h2>主策略｜日線 50 日均線（只做多）</h2><span class="badge ok">回測通過</span></div>
+      <div class="cb">
+        <div class="state"><span class="pill flat" id="bPill">–</span><span class="since" id="bSince"></span></div>
+        <div class="kv num" id="bKv"></div>
+        <div class="exitline" id="bLine"></div>
+        <div class="note">規則：每天<b>台北時間早上 8:00</b>（幣安日 K 收盤）看一次。收盤在 50 日均線<b>之上 → 持有多單</b>；收盤<b>跌破 → 平倉空手</b>。中間的漲跌不用理會。</div>
+      </div>
+    </section>
+
+    <!-- 倉位 -->
+    <section class="card">
+      <div class="ch"><h2>建議倉位</h2><small>20% 資金當保證金 × 5 倍 ＝ 帳戶實際 1 倍</small></div>
+      <div class="cb">
+        <div class="calc">帳戶資金（USDT）<input type="number" id="eq" min="0" step="10" inputmode="decimal"></div>
+        <div class="kv num" id="szKv"></div>
+        <div class="note">回測 6.8 年：這個配置沒有爆倉、最大回撤約 −51%。<b>開到 10 倍以上</b>報酬幾乎沒增加，回撤卻到 −79% 以上並開始爆倉。</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- B 歷史 -->
+  <section class="card">
+    <div class="ch"><h2>主策略歷史表現（2020 年起，1 倍，已扣手續費與資金費率）</h2>
+      <div class="tabs" id="bTabs"><button data-t="chart" class="on">淨值</button><button data-t="year">逐年</button><button data-t="trades">每筆交易</button></div></div>
+    <div class="cb"><div class="stats num" id="bStats"></div></div>
+    <div id="bChartBox"><div class="chart" id="bChart"></div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>均線策略</span><span><i style="background:var(--s2)"></i>一直持有 BTC</span></div></div>
+    <div class="twrap hidden" id="bYear"></div>
+    <div class="twrap hidden" id="bTrades"></div>
+  </section>
+
+  <!-- D -->
+  <section class="card">
+    <div class="ch"><h2>觀察中｜資金費率反向（D）</h2><span class="badge watch">未通過驗證・不建議照做</span></div>
+    <div class="cb">
+      <div class="state"><span class="pill flat" id="dPill">–</span><span class="since" id="dSince"></span></div>
+      <div class="kv num" id="dKv"></div>
+      <div class="note">規則：資金費率結算後，若費率 ≥ 過去 270 次（約 90 天）的 95 百分位<b>且 &gt; 0.03%</b> → 做空 3 天；若 ≤ 5 百分位<b>且 &lt; 0</b> → 做多 3 天。期間再出現同方向訊號就延長，反方向就反手。<br>
+      回測 9 組參數全部賺錢、前後半段都賺，但統計上還不顯著，所以列為觀察。建議先記錄它之後的實際表現，再決定要不要用。</div>
+    </div>
+    <div class="ch" style="border-top:1px solid var(--line)"><h2>D 歷史</h2>
+      <div class="tabs" id="dTabs"><button data-t="chart" class="on">淨值</button><button data-t="trades">每筆交易</button></div></div>
+    <div class="cb"><div class="stats num" id="dStats"></div></div>
+    <div id="dChartBox"><div class="chart" id="dChart"></div></div>
+    <div class="twrap hidden" id="dTrades"></div>
+  </section>
+
+  <footer>
+    資料：幣安 BTCUSDT 永續合約公開 API，每次打開網頁即時重新計算。手續費以單邊 0.05% 計，含實際資金費率。<br>
+    回測不代表未來。均線策略勝率約 25%：多數交易是小虧出場，靠少數大趨勢獲利，連虧 5–6 次是正常的。僅供研究，非投資建議。
+  </footer>
+</main>
+
+<script>
+// CORE-START（策略計算，與 btc_study.py 相同規則）
+const H = 3600000, DAY = 86400000, COST = 0.0005;
+
+function sumFunding(fund, tA, tB) {           // 時間落在 (tA, tB] 的資金費率總和
+  let s = 0;
+  for (const f of fund) if (f.t > tA && f.t <= tB) s += f.r;
+  return s;
+}
+
+function computeB(daily, fund, livePrice) {
+  // daily: [{t, o, c}]（已收盤的日 K）
+  const n = daily.length, c = daily.map(d => d.c), o = daily.map(d => d.o);
+  const sig = new Array(n).fill(0);
+  let s50 = 0;
+  for (let d = 0; d < n; d++) {
+    s50 += c[d]; if (d >= 50) s50 -= c[d - 50];
+    if (d >= 49) sig[d] = c[d] > s50 / 50 ? 1 : 0;
+  }
+  // pos[d] = 第 d 天開盤時的部位；第 n 天 = 今天（尚未收盤），開盤價 ≈ 最後一根收盤
+  const pos = new Array(n + 1).fill(0);
+  for (let d = 1; d <= n; d++) pos[d] = sig[d - 1];
+  const od = d => d < n ? o[d] : c[n - 1], td = d => d < n ? daily[d].t : daily[n - 1].t + DAY;
+  const trades = []; let cur = null;
+  for (let d = 0; d <= n; d++) {
+    const prev = d ? pos[d - 1] : 0;
+    if (pos[d] !== prev) {
+      if (prev === 1 && cur) {
+        const f = sumFunding(fund, cur.t, td(d));
+        trades.push({ ...cur, tx: td(d), px: od(d), net: od(d) / cur.pe - 1 - 2 * COST - f, open: false });
+        cur = null;
+      }
+      if (pos[d] === 1) cur = { t: td(d), pe: od(d) };
+    }
+  }
+  const nextPos = pos[n];
+  const enteredToday = !!(cur && cur.t === td(n));
+  const exitedToday = !cur && trades.length > 0 && trades[trades.length - 1].tx === td(n);
+  let openTrade = null;
+  if (cur) {
+    const lp = livePrice || c[n - 1];
+    const f = sumFunding(fund, cur.t, Date.now());
+    openTrade = { ...cur, px: lp, net: lp / cur.pe - 1 - COST - f, open: true };
+  }
+  // 每日淨值（開盤到開盤）
+  const eq = [], bh = [], dates = [], dailyRet = [], bhRet = [];
+  let e = 1, b = 1;
+  for (let d = 0; d < n - 1; d++) {
+    const r = o[d + 1] / o[d] - 1, prev = d ? pos[d - 1] : 0;
+    const f = pos[d] ? sumFundingFast(fund, daily[d].t, daily[d + 1].t) : 0;
+    const sr = pos[d] * r - COST * Math.abs(pos[d] - prev) - pos[d] * f;
+    e *= 1 + sr; b *= 1 + r;
+    eq.push(e); bh.push(b); dates.push(daily[d + 1].t); dailyRet.push(sr); bhRet.push(r);
+  }
+  // 出場 / 進場線：明早收盤價 x 與「含 x 的 50 日均線」比較 → x 與最近 49 天收盤平均比較
+  let s49 = 0; for (let d = n - 49; d < n; d++) s49 += c[d];
+  const line = s49 / 49, sma50 = (s49 + c[n - 50]) / 50;
+  return { trades, openTrade, nextPos, line, sma50, eq, bh, dates, dailyRet, bhRet, lastClose: c[n - 1], lastT: daily[n - 1].t, enteredToday, exitedToday };
+}
+
+let _fIdx = null;
+function sumFundingFast(fund, tA, tB) {        // 依時間排序的二分搜尋版本
+  if (!_fIdx || _fIdx.src !== fund) _fIdx = { src: fund, t: fund.map(f => f.t), cum: fund.reduce((a, f) => (a.push((a.length ? a[a.length - 1] : 0) + f.r), a), []) };
+  const lo = upper(_fIdx.t, tA), hi = upper(_fIdx.t, tB);
+  const at = i => i > 0 ? _fIdx.cum[i - 1] : 0;
+  return at(hi) - at(lo);
+}
+function upper(a, x) { let l = 0, h = a.length; while (l < h) { const m = (l + h) >> 1; if (a[m] <= x) l = m + 1; else h = m; } return l; }
+
+function quantile(sorted, q) {                 // 與 pandas 預設（線性內插）相同
+  const p = (sorted.length - 1) * q, i = Math.floor(p), f = p - i;
+  return i + 1 < sorted.length ? sorted[i] + (sorted[i + 1] - sorted[i]) * f : sorted[i];
+}
+
+function computeD(hourly, fund, livePrice, thr = 0.0003, hold = 72) {
+  // hourly: {t0, o:[]}（每小時開盤價，連續）
+  const t0 = hourly.t0, o = hourly.o, n = o.length;
+  const r = fund.map(f => f.r);
+  const events = [];
+  let q95 = NaN, q05 = NaN;
+  for (let j = 269; j < fund.length; j++) {
+    const w = r.slice(j - 269, j + 1).sort((a, b) => a - b);
+    q95 = quantile(w, 0.95); q05 = quantile(w, 0.05);
+    const h = Math.ceil((fund[j].t - t0) / H) + 1;          // 結算後下一根才行動（同 btc_study.py）
+    if (r[j] >= q95 && r[j] > thr) events.push({ h, s: -1, j });
+    else if (r[j] <= q05 && r[j] < 0) events.push({ h, s: 1, j });
+  }
+  const trades = []; let side = 0, start = -1, end = -1;
+  const close = (h, isOpen) => {
+    const tA = t0 + start * H;
+    let pxOut, tB;
+    if (isOpen) { pxOut = livePrice || o[n - 1]; tB = Date.now(); }
+    else { pxOut = o[h]; tB = t0 + h * H; }
+    const f = sumFundingFast(fund, tA, tB);
+    trades.push({ t: tA, tx: tB, side, pe: o[start], px: pxOut, net: side * (pxOut / o[start] - 1) - (isOpen ? 1 : 2) * COST - side * f, open: isOpen, endT: t0 + end * H });
+  };
+  let ei = 0;
+  for (let h = 0; h < n; h++) {
+    while (ei < events.length && events[ei].h <= h) {       // 先處理新訊號（同 btc_study.py）
+      const ev = events[ei++];
+      if (ev.h < h) continue;
+      if (side === ev.s) { end = h + hold; }
+      else { if (side !== 0) close(h, false); side = ev.s; start = h; end = h + hold; }
+    }
+    if (side !== 0 && h >= end) { close(end, false); side = 0; }
+  }
+  if (side !== 0) close(n - 1, true);
+  const last = fund.length ? fund[fund.length - 1] : null;
+  // 未來的事件（結算了但下一根還沒開）
+  const pend = events.filter(e => e.h >= n).map(e => ({ side: e.s, t: t0 + e.h * H }));
+  return { trades, q95, q05, last, pend };
+}
+// CORE-END
+
+// ====================== 資料 ======================
+const API = 'https://fapi.binance.com';
+const $ = id => document.getElementById(id);
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } },
+             set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} } };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+async function j(path, params) {
+  const u = new URL(API + path);
+  for (const [k, v] of Object.entries(params || {})) u.searchParams.set(k, v);
+  for (let i = 0; i < 4; i++) {
+    try { const r = await fetch(u); if (r.status === 429 || r.status === 418) { await sleep(3000 * (i + 1)); continue; }
+          if (!r.ok) throw new Error('HTTP ' + r.status); return await r.json(); }
+    catch (e) { if (i === 3) throw e; await sleep(800 * (i + 1)); }
+  }
+}
+const START = Date.UTC(2020, 0, 1), HSTART = START, FSTART = START - 100 * DAY;   // 與 btc_study.py 相同
+
+async function loadDaily() {
+  const out = []; let t = START;
+  while (true) {
+    const k = await j('/fapi/v1/klines', { symbol: 'BTCUSDT', interval: '1d', startTime: t, limit: 1500 });
+    for (const x of k) out.push({ t: x[0], o: +x[1], c: +x[4], ct: x[6] });
+    if (k.length < 1500) break; t = k[k.length - 1][0] + DAY;
+  }
+  return out.filter(d => d.ct < Date.now());
+}
+async function loadHourly() {
+  let cache = LS.get('btc_h1', null);
+  if (!cache || cache.t0 !== HSTART) cache = { t0: HSTART, o: [] };
+  const from = HSTART + Math.max(0, cache.o.length - 3) * H;
+  cache.o.length = Math.max(0, cache.o.length - 3);
+  const starts = []; for (let t = from; t < Date.now(); t += 1500 * H) starts.push(t);
+  const parts = new Array(starts.length);
+  let idx = 0;
+  await Promise.all([0, 1, 2, 3].map(async () => {
+    while (idx < starts.length) { const i = idx++; parts[i] = await j('/fapi/v1/klines', { symbol: 'BTCUSDT', interval: '1h', startTime: starts[i], limit: 1500 }); }
+  }));
+  for (const k of parts) for (const x of k) {
+    const i = Math.round((x[0] - HSTART) / H);
+    while (cache.o.length < i) cache.o.push(cache.o[cache.o.length - 1]);   // 補維護空缺
+    cache.o[i] = Math.round(+x[1] * 10) / 10;
+  }
+  LS.set('btc_h1', cache);
+  return cache;
+}
+async function loadFunding() {
+  let f = LS.get('btc_fund', []);
+  if (f.length && f[0].t > FSTART + 8 * H) f = [];
+  let t = f.length ? f[f.length - 1].t + 1 : FSTART;
+  while (true) {
+    const k = await j('/fapi/v1/fundingRate', { symbol: 'BTCUSDT', startTime: t, limit: 1000 });
+    for (const x of k) f.push({ t: x.fundingTime, r: +x.fundingRate });
+    if (k.length < 1000) break; t = k[k.length - 1].fundingTime + 1;
+  }
+  LS.set('btc_fund', f);
+  return f;
+}
+
+// ====================== 顯示 ======================
+const pct = (x, d = 1) => (x >= 0 ? '+' : '') + (x * 100).toFixed(d) + '%';
+const cls = x => x > 0 ? 'pos' : x < 0 ? 'neg' : '';
+const money = x => x.toLocaleString('en-US', { maximumFractionDigits: 1, minimumFractionDigits: 1 });
+const usd = x => '$' + x.toLocaleString('en-US', { maximumFractionDigits: 2 });
+const tw = (t, withTime) => { const d = new Date(t); const s = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+  return withTime ? s + ' ' + d.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }) : s; };
+let state = { B: null, D: null, live: null, prem: null };
+
+function renderB() {
+  const B = state.B, lp = state.live || B.lastClose;
+  const holding = B.nextPos === 1;
+  $('bPill').className = 'pill ' + (holding ? 'long' : 'flat');
+  $('bPill').textContent = holding ? '持有多單' : '空手';
+  const ot = B.openTrade;
+  if (B.enteredToday) $('bSince').textContent = `今早 8:00 收盤站上均線 → 今天進場（新訊號）`;
+  else if (B.exitedToday) $('bSince').textContent = `今早 8:00 收盤跌破均線 → 今天出場（新訊號）`;
+  else if (ot) $('bSince').textContent = `${tw(ot.t)} 進場，已持有 ${Math.floor((Date.now() - ot.t) / DAY)} 天`;
+  else { const lt = B.trades[B.trades.length - 1]; $('bSince').textContent = lt ? `${tw(lt.tx)} 出場後空手中` : ''; }
+  const items = [];
+  if (ot) {
+    items.push(['進場價', money(ot.pe), tw(ot.t)]);
+    items.push(['目前損益（1 倍）', `<span class="${cls(ot.net)}">${pct(ot.net, 2)}</span>`, '已扣手續費與資金費']);
+  } else items.push(['昨收', money(B.lastClose), tw(B.lastT)]);
+  items.push(['50 日均線', money(B.sma50), '以最近一根日 K 收盤計算']);
+  $('bKv').innerHTML = items.map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><em>${c}</em></div>`).join('');
+  const dist = B.line / lp - 1;
+  if (holding) {
+    $('bLine').innerHTML = `<b>出場線 ${money(B.line)}</b>（距現價 <span class="${cls(dist)}">${pct(dist, 1)}</span>）<br>明早 8:00 的日 K 收盤若<b>低於</b>這個價位，就在開盤平倉。盤中跌破不算，只看收盤。`;
+  } else {
+    $('bLine').innerHTML = `<b>進場線 ${money(B.line)}</b>（距現價 <span class="${cls(dist)}">${pct(dist, 1)}</span>）<br>明早 8:00 的日 K 收盤若<b>高於</b>這個價位，就在開盤做多。`;
+  }
+  renderSize();
+}
+
+function renderSize() {
+  const B = state.B; if (!B) return;
+  const lp = state.live || B.lastClose;
+  const eqv = parseFloat($('eq').value) || 0;
+  LS.set('btc_eq', eqv);
+  const margin = eqv * 0.2, notional = margin * 5, qty = notional / lp;
+  const liq = lp * (1 - 1 / 5 + 0.004);
+  const lossAtLine = notional * Math.min(0, B.line / lp - 1);
+  $('szKv').innerHTML = [
+    ['保證金（逐倉）', usd(margin), '帳戶的 20%'],
+    ['槓桿', '5 倍', '名目 ' + usd(notional)],
+    ['數量', qty.toFixed(qty < 0.01 ? 5 : 4) + ' BTC', '以現價計'],
+    ['預估強平價', money(liq), '約 −19.6%，遠在出場線外'],
+    ['跌到出場線會虧', usd(Math.abs(lossAtLine)), lp > 0 ? '約帳戶 ' + pct(lossAtLine / (eqv || 1), 1) : ''],
+  ].map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><em>${c}</em></div>`).join('');
+}
+
+function tradeStats(tr) {
+  const c = tr.filter(t => !t.open);
+  const w = c.filter(t => t.net > 0).length;
+  const avg = c.reduce((a, t) => a + t.net, 0) / (c.length || 1);
+  const comp = c.reduce((a, t) => a * (1 + t.net), 1) - 1;
+  let streak = 0, mx = 0; for (const t of c) { streak = t.net <= 0 ? streak + 1 : 0; mx = Math.max(mx, streak); }
+  return { n: c.length, wr: w / (c.length || 1), avg, comp, mx };
+}
+function maxDD(arr) { let pk = -Infinity, m = 0; for (const v of arr) { pk = Math.max(pk, v); m = Math.min(m, v / pk - 1); } return m; }
+
+function renderBHist() {
+  const B = state.B, s = tradeStats(B.trades);
+  const yrs = B.dates.length / 365, cagr = Math.pow(B.eq[B.eq.length - 1], 1 / yrs) - 1, bhc = Math.pow(B.bh[B.bh.length - 1], 1 / yrs) - 1;
+  $('bStats').innerHTML = [
+    ['年化報酬', `<span class="${cls(cagr)}">${pct(cagr)}</span>`, `持有 BTC ${pct(bhc)}`],
+    ['最大回撤', pct(maxDD(B.eq)), `持有 BTC ${pct(maxDD(B.bh))}`],
+    ['勝率', pct(s.wr).replace('+', ''), `${s.n} 筆，平均每筆 ${pct(s.avg)}`],
+    ['最長連虧', s.mx + ' 筆', '要有心理準備'],
+  ].map(([a, b, c]) => `<div class="stat"><span>${a}</span><b>${b}</b><span>${c}</span></div>`).join('');
+  lineChart($('bChart'), B.dates, [{ name: '均線策略', v: B.eq, color: 'var(--s1)' }, { name: '一直持有 BTC', v: B.bh, color: 'var(--s2)' }]);
+  // 逐年
+  const by = {}, bb = {};
+  B.dates.forEach((t, i) => { const y = new Date(t - 1).getUTCFullYear(); by[y] = (by[y] || 1) * (1 + B.dailyRet[i]); bb[y] = (bb[y] || 1) * (1 + B.bhRet[i]); });
+  const ys = Object.keys(by);
+  const ty = {}; B.trades.forEach(t => { const y = new Date(t.tx).getUTCFullYear(); (ty[y] ||= []).push(t.net); });
+  $('bYear').innerHTML = `<table class="num"><tr><th>年份</th><th>均線策略</th><th>持有 BTC</th><th>交易筆數</th><th>勝率</th></tr>` +
+    ys.map(y => { const a = by[y] - 1, b = bb[y] - 1, t = ty[y] || [];
+      return `<tr><td>${y}</td><td class="${cls(a)}">${pct(a)}</td><td class="${cls(b)}">${pct(b)}</td><td>${t.length}</td><td>${t.length ? Math.round(t.filter(x => x > 0).length / t.length * 100) + '%' : '–'}</td></tr>`; }).join('') + '</table>';
+  const all = B.openTrade ? [...B.trades, B.openTrade] : B.trades;
+  $('bTrades').innerHTML = `<table class="num"><tr><th>進場</th><th>出場</th><th>天數</th><th>進場價</th><th>出場價</th><th>淨報酬</th></tr>` +
+    [...all].reverse().map(t => `<tr><td>${tw(t.t)}</td><td>${t.open ? '<span class="mute">持有中</span>' : tw(t.tx)}</td><td>${Math.round(((t.open ? Date.now() : t.tx) - t.t) / DAY)}</td><td>${money(t.pe)}</td><td>${money(t.px)}</td><td class="${cls(t.net)}">${pct(t.net, 2)}</td></tr>`).join('') + '</table>';
+}
+
+function renderD() {
+  const D = state.D, lp = state.live;
+  const ot = D.trades.find(t => t.open);
+  const pend = D.pend[D.pend.length - 1];
+  const side = pend ? pend.side : ot ? ot.side : 0;
+  $('dPill').className = 'pill ' + (side > 0 ? 'long' : side < 0 ? 'short' : 'flat');
+  $('dPill').textContent = side > 0 ? '訊號：做多' : side < 0 ? '訊號：做空' : '無訊號';
+  if (pend) $('dSince').textContent = `剛結算觸發，${tw(pend.t, true)} 進場`;
+  else if (ot) $('dSince').textContent = `${tw(ot.t, true)} 進場，預計 ${tw(ot.endT, true)} 出場（剩 ${Math.max(0, Math.round((ot.endT - Date.now()) / H))} 小時）`;
+  else $('dSince').textContent = '等待資金費率出現極端值';
+  const p = state.prem;
+  const items = [
+    ['上次結算費率', D.last ? (D.last.r * 100).toFixed(4) + '%' : '–', D.last ? tw(D.last.t, true) : ''],
+    ['預估下次費率', p ? (p.r * 100).toFixed(4) + '%' : '–', p ? '結算 ' + tw(p.next, true) : ''],
+    ['做空門檻', (Math.max(D.q95, 0.0003) * 100).toFixed(4) + '%', '95 百分位與 0.03% 取高'],
+    ['做多門檻', D.q05 < 0 ? (D.q05 * 100).toFixed(4) + '%' : '< 0 且 ≤ ' + (D.q05 * 100).toFixed(4) + '%', '5 百分位且需為負'],
+  ];
+  if (ot) items.push(['目前損益（1 倍）', `<span class="${cls(ot.net)}">${pct(ot.net, 2)}</span>`, `${ot.side > 0 ? '多' : '空'}單 @ ${money(ot.pe)}`]);
+  $('dKv').innerHTML = items.map(([a, b, c]) => `<div><span>${a}</span><b>${b}</b><em>${c}</em></div>`).join('');
+  const s = tradeStats(D.trades);
+  const eqv = [], dts = []; let e = 1;
+  D.trades.filter(t => !t.open).forEach(t => { e *= 1 + t.net; eqv.push(e); dts.push(t.tx); });
+  $('dStats').innerHTML = [
+    ['累積報酬', `<span class="${cls(s.comp)}">${pct(s.comp)}</span>`, '1 倍、逐筆複利'],
+    ['勝率', pct(s.wr).replace('+', ''), `${s.n} 筆`],
+    ['平均每筆', `<span class="${cls(s.avg)}">${pct(s.avg, 2)}</span>`, '已扣成本'],
+    ['最長連虧', s.mx + ' 筆', ''],
+  ].map(([a, b, c]) => `<div class="stat"><span>${a}</span><b>${b}</b><span>${c}</span></div>`).join('');
+  if (dts.length > 1) lineChart($('dChart'), dts, [{ name: 'D 策略', v: eqv, color: 'var(--s1)' }]);
+  $('dTrades').innerHTML = `<table class="num"><tr><th>進場</th><th>方向</th><th>出場</th><th>進場價</th><th>出場價</th><th>淨報酬</th></tr>` +
+    [...D.trades].reverse().map(t => `<tr><td>${tw(t.t, true)}</td><td class="${t.side > 0 ? 'pos' : 'neg'}">${t.side > 0 ? '多' : '空'}</td><td>${t.open ? '<span class="mute">持有中</span>' : tw(t.tx, true)}</td><td>${money(t.pe)}</td><td>${money(t.px)}</td><td class="${cls(t.net)}">${pct(t.net, 2)}</td></tr>`).join('') + '</table>';
+}
+
+// ---------- 折線圖（對數座標，十字線提示） ----------
+function lineChart(el, dates, series) {
+  el._args = [dates, series];
+  const W = Math.max(300, Math.round(el.clientWidth || 1000)), Hh = W < 600 ? 220 : 300, L = 46, R = 12, T = 14, Bm = 26;
+  const all = series.flatMap(s => s.v).filter(v => v > 0);
+  let lo = Math.log10(Math.min(...all)), hi = Math.log10(Math.max(...all));
+  if (hi - lo < 0.3) { const m = (hi + lo) / 2; lo = m - 0.15; hi = m + 0.15; }
+  const x = i => L + (W - L - R) * i / (dates.length - 1);
+  const y = v => T + (Hh - T - Bm) * (1 - (Math.log10(v) - lo) / (hi - lo));
+  const ticks = []; for (let p = Math.floor(lo); p <= Math.ceil(hi); p++) for (const m of [1, 2, 5]) { const v = m * 10 ** p; if (Math.log10(v) >= lo && Math.log10(v) <= hi) ticks.push(v); }
+  const fmt = v => v >= 1 ? '×' + (v >= 10 ? Math.round(v) : v.toFixed(v % 1 ? 1 : 0)) : '×' + v;
+  const years = []; let py = null; dates.forEach((t, i) => { const yy = new Date(t).getUTCFullYear(); if (yy !== py) { years.push([i, W < 600 ? "'" + String(yy).slice(2) : yy]); py = yy; } });
+  const path = s => s.v.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(Math.max(v, 1e-9)).toFixed(1)).join('');
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${Hh}" role="img" aria-label="淨值曲線">
+    ${ticks.map(v => `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${fmt(v)}</text>`).join('')}
+    ${years.map(([i, yy]) => `<text x="${x(i)}" y="${Hh - 8}" font-size="11" fill="var(--muted)" text-anchor="${i ? 'middle' : 'start'}">${yy}</text>`).join('')}
+    ${series.map(s => `<path d="${path(s)}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round"/>`).join('')}
+    <line class="xh" y1="${T}" y2="${Hh - Bm}" stroke="var(--line2)" stroke-width="1" visibility="hidden"/>
+    ${series.map((s, k) => `<circle class="mk" data-k="${k}" r="4" fill="${s.color}" stroke="var(--panel)" stroke-width="2" visibility="hidden"/>`).join('')}
+    <rect x="${L}" y="0" width="${W - L - R}" height="${Hh}" fill="transparent"/>
+  </svg><div class="tip hidden"></div>`;
+  const svg = el.querySelector('svg'), tip = el.querySelector('.tip'), xh = svg.querySelector('.xh'), mks = svg.querySelectorAll('.mk');
+  const move = ev => {
+    const r = svg.getBoundingClientRect(), px = (ev.clientX - r.left) / r.width * W;
+    const i = Math.max(0, Math.min(dates.length - 1, Math.round((px - L) / (W - L - R) * (dates.length - 1))));
+    xh.setAttribute('x1', x(i)); xh.setAttribute('x2', x(i)); xh.setAttribute('visibility', 'visible');
+    mks.forEach((m, k) => { m.setAttribute('cx', x(i)); m.setAttribute('cy', y(series[k].v[i])); m.setAttribute('visibility', 'visible'); });
+    tip.innerHTML = `<div class="mute">${tw(dates[i])}</div>` + series.map(s => `<div><span class="sw" style="background:${s.color}"></span>${s.name} <b class="num">${fmt2(s.v[i])}</b></div>`).join('');
+    tip.classList.remove('hidden');
+    const tx = (x(i) / W) * r.width, er = el.getBoundingClientRect();
+    tip.style.left = Math.min(er.width - tip.offsetWidth - 4, Math.max(4, tx + 12)) + 'px';
+    tip.style.top = '8px';
+  };
+  const leave = () => { xh.setAttribute('visibility', 'hidden'); mks.forEach(m => m.setAttribute('visibility', 'hidden')); tip.classList.add('hidden'); };
+  svg.addEventListener('pointermove', move); svg.addEventListener('pointerdown', move); svg.addEventListener('pointerleave', leave);
+}
+const fmt2 = v => v >= 100 ? '×' + v.toFixed(0) : '×' + v.toFixed(2);
+
+function tabs(boxId, map) {
+  $(boxId).querySelectorAll('button').forEach(b => b.onclick = () => {
+    $(boxId).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    for (const [k, id] of Object.entries(map)) $(id).classList.toggle('hidden', k !== b.dataset.t);
+    window.dispatchEvent(new Event('resize'));          // 切回淨值時依目前寬度重畫
+  });
+}
+let _rz; window.addEventListener('resize', () => { clearTimeout(_rz); _rz = setTimeout(() => ['bChart', 'dChart'].forEach(id => { const el = $(id); if (el._args) lineChart(el, ...el._args); }), 150); });
+tabs('bTabs', { chart: 'bChartBox', year: 'bYear', trades: 'bTrades' });
+tabs('dTabs', { chart: 'dChartBox', trades: 'dTrades' });
+
+// ---------- 主流程 ----------
+let loading = false;
+function setStatus(kind, text) { $('dot').className = 'dot ' + kind; $('st').textContent = text; }
+async function refreshPrice() {
+  try {
+    const p = await j('/fapi/v1/premiumIndex', { symbol: 'BTCUSDT' });
+    state.live = +p.markPrice; state.prem = { r: +p.lastFundingRate, next: p.nextFundingTime };
+    $('px').textContent = money(state.live);
+    if (state.B) { state.B = computeB(state.daily, state.fund, state.live); renderB(); }
+    if (state.D) { state.D = computeD(state.hourly, state.fund, state.live); renderD(); }
+    setStatus('live', '更新 ' + new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false }));
+  } catch (e) { setStatus('err', '價格更新失敗'); }
+}
+async function loadAll() {
+  if (loading) return; loading = true;
+  setStatus('busy', '下載歷史資料…（第一次約 10–20 秒）');
+  try {
+    const [daily, fund, hourly] = await Promise.all([loadDaily(), loadFunding(), loadHourly()]);
+    Object.assign(state, { daily, fund, hourly });
+    _fIdx = null;
+    await refreshPrice();
+    state.B = computeB(daily, fund, state.live); state.D = computeD(hourly, fund, state.live);
+    renderB(); renderBHist(); renderD();
+    $('err').classList.add('hidden');
+  } catch (e) {
+    $('err').textContent = '無法取得幣安資料：' + (e.message || e) + '。若持續發生，請確認沒有開美國 VPN。';
+    $('err').classList.remove('hidden'); setStatus('err', '連線失敗');
+  } finally { loading = false; }
+}
+$('eq').value = LS.get('btc_eq', 200);
+$('eq').addEventListener('input', renderSize);
+$('reload').onclick = loadAll;
+setInterval(refreshPrice, 30000);
+setInterval(() => { const d = new Date(); if (d.getUTCMinutes() === 1) loadAll(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadAll(); });
+loadAll();
+</script>
+</body>
+</html>
